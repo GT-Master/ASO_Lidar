@@ -34,7 +34,7 @@ from sklearn.preprocessing import Normalizer, Imputer
 get_ipython().magic(u'matplotlib inline')
 
 
-# In[147]:
+# In[149]:
 
 def init():
     global site_names, latitudes, longitudes, elevations, all_sites, dates
@@ -43,6 +43,9 @@ def init():
     longitudes = [-119.773, -119.448, -119.497, -119.625, -119.55]
     elevations = [7000., 8150., 8700., 7000., 8200.]
     all_sites, dates = get_cdec(site_names, latitudes, longitudes, elevations, '2014-02-01', '2014-05-01')
+    merced_date_list = [datetime(2014, 4, 6), datetime(2014, 4, 14), datetime(2014, 4, 23), datetime(2014, 4, 29)]
+    tuolumne_date_list = [datetime(2014, 3, 23), datetime(2014, 4, 7), datetime(2014, 4, 13), datetime(2014, 4, 20),
+                         datetime(2014, 4, 28)]
 
 
 # In[4]:
@@ -680,14 +683,9 @@ def tune_rf_all_dates():
         plt.show()
 
 
-# In[ ]:
+# In[148]:
 
 def main():
-    site_names = ['GFL', 'TNY', 'SNF', 'PGM', 'STR']
-    latitudes = [37.765, 37.838, 37.827, 37.667, 37.637]
-    longitudes = [-119.773, -119.448, -119.497, -119.625, -119.55]
-    elevations = [7000., 8150., 8700., 7000., 8200.]
-    all_sites, dates = get_cdec(site_names, latitudes, longitudes, elevations, '2014-02-01', '2014-05-01')
 
 #     date_list = [datetime(2014, 3, 23), datetime(2014, 4, 7), datetime(2014, 4, 13), datetime(2014, 4, 20), datetime(2014, 4, 28)]
 #     for temp_date in date_list:
