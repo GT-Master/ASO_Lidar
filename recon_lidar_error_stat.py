@@ -34,10 +34,10 @@ from sklearn.preprocessing import Normalizer, Imputer
 get_ipython().magic(u'matplotlib inline')
 
 
-# In[149]:
+# In[150]:
 
 def init():
-    global site_names, latitudes, longitudes, elevations, all_sites, dates
+    global site_names, latitudes, longitudes, elevations, all_sites, dates, merced_date_list, tuolumne_date_list
     site_names = ['GFL', 'TNY', 'SNF', 'PGM', 'STR']
     latitudes = [37.765, 37.838, 37.827, 37.667, 37.637]
     longitudes = [-119.773, -119.448, -119.497, -119.625, -119.55]
