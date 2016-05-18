@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[77]:
+# In[16]:
 
 from osgeo import gdal, gdalconst
 from sklearn import cross_validation
@@ -31,10 +31,10 @@ import numpy as np
 from datetime import date, datetime
 from sklearn import gaussian_process
 from sklearn.preprocessing import Normalizer, Imputer
-get_ipython().magic(u'matplotlib inline')
+plt.rcParams['svg.image_noscale'] = False
 
 
-# In[150]:
+# In[23]:
 
 def init():
     global site_names, latitudes, longitudes, elevations, all_sites, dates, merced_date_list, tuolumne_date_list
@@ -46,10 +46,6 @@ def init():
     merced_date_list = [datetime(2014, 4, 6), datetime(2014, 4, 14), datetime(2014, 4, 23), datetime(2014, 4, 29)]
     tuolumne_date_list = [datetime(2014, 3, 23), datetime(2014, 4, 7), datetime(2014, 4, 13), datetime(2014, 4, 20),
                          datetime(2014, 4, 28)]
-
-
-# In[4]:
-
 def resample_lidar(src_fn, dst_fn, pixel_spacing):
     # Source
     src_filename = src_fn
@@ -75,9 +71,6 @@ def resample_lidar(src_fn, dst_fn, pixel_spacing):
 
     del dst # Flush
 
-
-# In[5]:
-
 def reproject_reconstruction(src_fn, match_fn, dst_fn, lidar=False):
     src_filename = src_fn
     src = gdal.Open(src_filename, gdalconst.GA_ReadOnly)
@@ -102,18 +95,12 @@ def reproject_reconstruction(src_fn, match_fn, dst_fn, lidar=False):
     else:
         gdal.ReprojectImage(src, dst, src_proj, match_proj, gdalconst.GRA_Average)
     del dst
-
-
-# In[29]:
-
+    
 def add_border(image):
     image_shape = image.shape
     new_image = np.zeros((image_shape[0] + 2, image_shape[1] + 2))
     new_image[1:-1, 1:-1] = image
     return new_image
-
-
-# In[7]:
 
 def get_cdec(site_names, latitudes, longitudes, elevations, start_time, end_time, bool_dates=True):
     all_sites = {}
@@ -144,10 +131,7 @@ def get_cdec(site_names, latitudes, longitudes, elevations, start_time, end_time
         return all_sites, dates
     else:
         return all_sites
-
-
-# In[8]:
-
+    
 def get_spatial_density(all_sites, dates, day_need):
     X = np.empty((0, 3))
     y = np.zeros((len(all_sites), 4))
@@ -196,10 +180,7 @@ def get_spatial_density(all_sites, dates, day_need):
     
     return date_y_total
 
-
-# In[47]:
-
-def error_analysis(all_sites, dates, day_of_april, tree=True, data=False, shift=False):
+def error_analysis(all_sites, dates, day_of_april, tree=True, data=False, shift=False, recon_swe_feature=False):
     # Calculate snowdensity of the day and get all the spatial data from the folder
     sd_fn = "3m_data/MB201404" + str(day_of_april).zfill(2) + "_500m.tif"
     swe_fn = "3m_data/" + str(day_of_april).zfill(2) + "APR2014_Merced.tif"
@@ -269,13 +250,19 @@ def error_analysis(all_sites, dates, day_of_april, tree=True, data=False, shift=
     valid_data_space = np.column_stack((valid_data_space, lidar_minus_recon))
     if shift:
         original_outlier_detection_space = valid_data_space[valid_data_space[:, 4] >= 1500., :]
-        feature_col_number = np.arange(0, 13, 1)
+        if recon_swe_feature:
+            feature_col_number = np.arange(0, 14, 1)
+        else:
+            feature_col_number = np.arange(0, 13, 1)
         feature_col_number = np.append(feature_col_number, [-1])
         original_outlier_detection_space = original_outlier_detection_space[:, feature_col_number]
         outlier_detection_space = original_outlier_detection_space[:, [4, -1]]
     else:
         original_outlier_detection_space = valid_data_space[valid_data_space[:, 0] >= 1500., :]
-        original_outlier_detection_space = original_outlier_detection_space[:, [0, 1, 2, 3, 4, -1]]
+        if recon_swe_feature:
+            original_outlier_detection_space = original_outlier_detection_space[:, [0, 1, 2, 3, 4, 5, -1]]
+        else:
+            original_outlier_detection_space = original_outlier_detection_space[:, [0,1,2,3,4,-1]]
         outlier_detection_space = original_outlier_detection_space[:, [0, -1]]
 
     # Outlier rejection using robust covariance estimator
@@ -379,36 +366,7 @@ def error_analysis(all_sites, dates, day_of_april, tree=True, data=False, shift=
         save_fig_fn = "figures/MB_APR" + str(day_of_april).zfill(2) + "_ransac.pdf"
 #     plt.savefig(save_fig_fn)
     plt.show()
-
-
-# In[10]:
-
-def lidar_recon_anova(site_abbr):
-    # date_obj
-    if site_abbr == "TB":
-        date_obj_list = [date(2014, 3, 23), date(2014, 4, 7), date(2014, 4, 13), date(2014, 4, 20), date(2014, 4, 28)]
-    else:
-        date_obj_list = [date(2014, 4, 6), date(2014, 4, 14), date(2014, 4, 23), date(2014, 4, 29)]
     
-    # Formatting the entire feature space
-    error_array_list = []
-    all_sites, dates = get_cdec(site_names, latitudes, longitudes, elevations, '2014-02-01', '2014-05-01')
-    for date_obj in date_obj_list:
-        if site_abbr == "TB":
-            feature_space = error_analysis_tb(date_obj, data=True)
-        else:
-            site_names = ['GFL', 'TNY', 'SNF', 'PGM', 'STR']
-            latitudes = [37.765, 37.838, 37.827, 37.667, 37.637]
-            longitudes = [-119.773, -119.448, -119.497, -119.625, -119.55]
-            elevations = [7000., 8150., 8700., 7000., 8200.]
-            feature_space = error_analysis(all_sites, dates, date_obj.day, data=True)
-        error_array_list.append(feature_space[:, -1])
-    f_val, p_val = stats.f_oneway(*error_array_list)
-    print "The p-value of one-way ANOVA is", p_val
-
-
-# In[11]:
-
 def error_analysis_tb(date_of_season, tree=True, data=False):
     # convert date of season to month and day of the month
     month = date_of_season.month
@@ -501,13 +459,14 @@ def error_analysis_tb(date_of_season, tree=True, data=False):
         return clean_data_space
     
     # Calculate the kernel density of the data points in elevation/error 2D space
+    '''
     kde = KernelDensity(kernel='gaussian', bandwidth=0.4)
     kde.fit(clean_data_space[:, [0, -1]])
     point_density = np.exp(kde.score_samples(clean_data_space[:, [0, -1]]))
     axarr[1, 0].scatter(clean_data_space[:, 0], clean_data_space[:, -1], c = point_density, edgecolor='none', alpha=0.3)
     axarr[1, 0].set_ylim([-1., 1.])
 #     plt.show()
-
+    '''
     axarr[1, 1].hist(clean_data_space[:, -1], bins=30)
     axarr[1, 1].set_xlim([-0.8, 0.8])
 #     plt.show()
@@ -552,17 +511,37 @@ def error_analysis_tb(date_of_season, tree=True, data=False):
         save_fig_fn = "figures/TB_" + month_name + str(day).zfill(2) + "_ransac.pdf"
     plt.savefig(save_fig_fn)
     plt.show()
-
-
-# In[68]:
-
-def getData(site_abbr, date_time, cv=False, kfold=False, shift=False):
+    
+def lidar_recon_anova(site_abbr):
+    # date_obj
+    if site_abbr == "TB":
+        date_obj_list = [date(2014, 3, 23), date(2014, 4, 7), date(2014, 4, 13), date(2014, 4, 20), date(2014, 4, 28)]
+    else:
+        date_obj_list = [date(2014, 4, 6), date(2014, 4, 14), date(2014, 4, 23), date(2014, 4, 29)]
+    
+    # Formatting the entire feature space
+    error_array_list = []
+    all_sites, dates = get_cdec(site_names, latitudes, longitudes, elevations, '2014-02-01', '2014-05-01')
+    for date_obj in date_obj_list:
+        if site_abbr == "TB":
+            feature_space = error_analysis_tb(date_obj, data=True)
+        else:
+            site_names = ['GFL', 'TNY', 'SNF', 'PGM', 'STR']
+            latitudes = [37.765, 37.838, 37.827, 37.667, 37.637]
+            longitudes = [-119.773, -119.448, -119.497, -119.625, -119.55]
+            elevations = [7000., 8150., 8700., 7000., 8200.]
+            feature_space = error_analysis(all_sites, dates, date_obj.day, data=True)
+        error_array_list.append(feature_space[:, -1])
+    f_val, p_val = stats.f_oneway(*error_array_list)
+    print "The p-value of one-way ANOVA is", p_val
+    
+def getData(site_abbr, date_time, cv=False, kfold=False, shift=False, with_swe=False):
     if cv and kfold:
         print "Cross validation and k-fold cannot be true at the same time"
         return 0
     if site_abbr == "MB":
         day_of_april = date_time.day
-        data_table = error_analysis(all_sites, dates, day_of_april, data=True, shift=shift)
+        data_table = error_analysis(all_sites, dates, day_of_april, data=True, shift=shift, recon_swe_feature=with_swe)
         feature = data_table[:, 0:-1]
         predict_y = data_table[:, -1]
         if cv:
@@ -574,24 +553,23 @@ def getData(site_abbr, date_time, cv=False, kfold=False, shift=False):
             return feature, predict_y, KFold_obj
         else:
             return feature, predict_y
-
-
-# In[128]:
-
+        
+        
 # For a particular day of the lidar observation, check the kernel density estimation of the error. Then fit the best 
 # fitted random forest regression model to the data and check how does the error density changes with regard the 
 # initial error
-def randomForestPredict(site_abbr, date_time, shift=False, kFold=False, cv=True):
+def randomForestPredict(site_abbr, date_time, shift=False, kFold=False, cv=True, with_swe=False):
     
     n_est_list = np.arange(10, 100, 10)
     n_min_samples_leaf = np.arange(10, 50, 10)
     error = np.zeros((len(n_est_list), len(n_min_samples_leaf)))
     if kFold:
-        feature, predict_y, kf = getData(site_abbr, date_time, shift=shift, kfold=True)
+        feature, predict_y, kf = getData(site_abbr, date_time, shift=shift, kfold=True, with_swe=with_swe)
+        print feature.shape
         for i, n_est in enumerate(n_est_list):
             print i
             for j, n_sl in enumerate(n_min_samples_leaf):
-                rf = RandomForestRegressor(n_estimators=n_est, max_features='auto', min_samples_leaf=n_sl, n_jobs=10)
+                rf = RandomForestRegressor(n_estimators=n_est, max_features='auto', min_samples_leaf=n_sl, n_jobs=18)
                 y_predict_list = np.empty(1)
                 y_test_list = np.empty(1)
                 for train_index, test_index in kf:
@@ -604,12 +582,12 @@ def randomForestPredict(site_abbr, date_time, shift=False, kFold=False, cv=True)
                 rmse = np.sqrt(mean_squared_error(y_test_list, y_predict_list))
                 error[i, j] = rmse
     elif cv:
-        X_train, X_test, y_train, y_test = getData(site_abbr, date_time, shift=shift, kfold=False, cv=True)
+        X_train, X_test, y_train, y_test = getData(site_abbr, date_time, shift=shift, kfold=False, cv=True, with_swe=with_swe)
         for i,n_est in enumerate(n_est_list):
             print i
             for j,n_sl in enumerate(n_min_samples_leaf):
                 rf = RandomForestRegressor(n_estimators=n_est, max_features='auto', min_samples_leaf=n_sl, 
-                                           n_jobs=10)
+                                           n_jobs=18)
                 rf.fit(X_train, y_train)
                 y_predict = rf.predict(X_test)
                 mse = mean_squared_error(y_test, y_predict)
@@ -617,37 +595,59 @@ def randomForestPredict(site_abbr, date_time, shift=False, kFold=False, cv=True)
     min_error_idx = np.where(error==np.min(error))
     n_est_opt = n_est_list[min_error_idx[0]]
     n_sl_opt = n_min_samples_leaf[min_error_idx[1]]
-    feature, predict_y = getData(site_abbr, date_time, shift=shift)
-    final_model = RandomForestRegressor(n_estimators=n_est_opt, max_features='auto', min_samples_leaf=n_sl_opt, n_jobs=10)
+    feature, predict_y = getData(site_abbr, date_time, shift=shift, with_swe=with_swe)
+    final_model = RandomForestRegressor(n_estimators=n_est_opt, max_features='auto', min_samples_leaf=n_sl_opt, n_jobs=18)
     final_model.fit(feature, predict_y)
     if shift:
-        final_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_shift_rf.p"
+        final_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_shift_"
     else:
-        final_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_rf.p"
+        final_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_"
+    if with_swe:
+            final_model_fn += "swe_rf.p"
+    else:
+        final_model_fn += "rf.p"
     pickle.dump(final_model, open(final_model_fn, "wb"))
     return error, n_est_opt, n_sl_opt
 
 
-# In[136]:
+def tune_rf_all_dates(with_swe=False):
+    date_time_list = [datetime(2014, 4, 6), datetime(2014, 4, 14), datetime(2014, 4, 23), datetime(2014, 4, 29)]
+    for temp_date_time in date_time_list:
+        rmse, n_est_opt, n_sl_opt = randomForestPredict("MB", temp_date_time, shift=False, kFold=True, with_swe=with_swe)
+        plt.imshow(rmse, vmin = np.min(rmse), vmax = np.max(rmse), interpolation='nearest')
+        plt.colorbar()
+        plt.show()
 
+    # This one is with 9 grids of dem features
+    for temp_date_time in date_time_list:
+        rmse, n_est_opt, n_sl_opt = randomForestPredict("MB", temp_date_time, shift=True, kFold=True, with_swe=with_swe)
+        plt.imshow(rmse, vmin = np.min(rmse), vmax = np.max(rmse), interpolation='nearest')
+        plt.colorbar()
+        plt.show()
+        
+        
 def calculate_1d_kernel_density(X, linspace):
     kde = KernelDensity(kernel='gaussian', bandwidth=0.1).fit(X[:, np.newaxis])
     density = kde.score_samples(linspace)
     return np.exp(density)
 
 
-# In[145]:
-
-def plot_err_dist_before_and_after(site_abbr, date_time, shift=False):
+def plot_err_dist_before_and_after(site_abbr, date_time, shift=False, with_swe=False):
     if site_abbr == "MB":
-        feature, y = getData(site_abbr, date_time, shift=shift)
+        feature, y = getData(site_abbr, date_time, shift=shift, with_swe=with_swe)
+        print feature.shape
         y_linspace = np.linspace(-0.5, 0.5, 200)[:, np.newaxis]
         y_density = calculate_1d_kernel_density(y, y_linspace)
         plt.plot(y_linspace, y_density)
         if shift:
-            rf_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_shift_rf.p"
+            rf_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_shift_"
         else:
-            rf_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_rf.p"
+            rf_model_fn = "regression_models/" + site_abbr + "_" + date_time.strftime("%y_%m_%d") + "_"
+        if with_swe:
+            rf_model_fn += "swe_rf.p"
+        else:
+            rf_model_fn += "rf.p"
+        print rf_model_fn
         rf_model = pickle.load(open(rf_model_fn, "rb"))
         y_predict = rf_model.predict(feature)
         y_diff = y - y_predict
@@ -655,35 +655,15 @@ def plot_err_dist_before_and_after(site_abbr, date_time, shift=False):
         plt.plot(y_linspace, y_predict_density)
         plt.legend(["Original", "Corrected"])
         plt.show()
-
-
-# In[146]:
-
-def plot_err_dist_all_dates():
+        
+        
+def plot_err_dist_all_dates(with_swe=False):
     date_time_list = [datetime(2014, 4, 6), datetime(2014, 4, 14), datetime(2014, 4, 23), datetime(2014, 4, 29)]
     for date_time in date_time_list:
-        plot_err_dist_before_and_after("MB", date_time, shift=True)
+        plot_err_dist_before_and_after("MB", date_time, shift=True, with_swe=with_swe)
 
 
-# In[139]:
-
-def tune_rf_all_dates():
-    date_time_list = [datetime(2014, 4, 14), datetime(2014, 4, 23), datetime(2014, 4, 29)]
-    for temp_date_time in date_time_list:
-        rmse, n_est_opt, n_sl_opt = randomForestPredict("MB", temp_date_time, shift=False, kFold=True)
-        plt.imshow(rmse, vmin = np.min(rmse), vmax = np.max(rmse), interpolation='none')
-        plt.colorbar()
-        plt.show()
-
-    # This one is with 9 grids of dem features
-    for temp_date_time in date_time_list:
-        rmse, n_est_opt, n_sl_opt = randomForestPredict("MB", temp_date_time, shift=True, kFold=True)
-        plt.imshow(rmse, vmin = np.min(rmse), vmax = np.max(rmse), interpolation='none')
-        plt.colorbar()
-        plt.show()
-
-
-# In[148]:
+# In[24]:
 
 def main():
 
@@ -694,4 +674,13 @@ def main():
     for day_num in [6, 14, 23, 29]:
     # for day_num in [6]:
         error_analysis(all_sites, dates, day_num, tree=True)
+
+
+# In[ ]:
+
+def rf_correct_tuning_result():
+    init()
+    tune_rf_all_dates(with_swe=True)
+    plot_err_dist_all_dates()
+    plot_err_dist_all_dates(with_swe=True)
 
