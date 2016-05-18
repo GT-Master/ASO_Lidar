@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[16]:
+# In[27]:
 
 from osgeo import gdal, gdalconst
 from sklearn import cross_validation
@@ -21,7 +21,6 @@ from matplotlib.ticker import MultipleLocator
 from scipy import stats
 from datetime import datetime, date
 import os
-import pickle
 import matplotlib
 import calendar
 from ulmo import cdec
@@ -31,6 +30,7 @@ import numpy as np
 from datetime import date, datetime
 from sklearn import gaussian_process
 from sklearn.preprocessing import Normalizer, Imputer
+from sklearn.externals import joblib
 plt.rcParams['svg.image_noscale'] = False
 
 
@@ -606,7 +606,7 @@ def randomForestPredict(site_abbr, date_time, shift=False, kFold=False, cv=True,
             final_model_fn += "swe_rf.p"
     else:
         final_model_fn += "rf.p"
-    pickle.dump(final_model, open(final_model_fn, "wb"))
+    joblib.dump(final_model, final_model_fn)
     return error, n_est_opt, n_sl_opt
 
 
@@ -648,7 +648,7 @@ def plot_err_dist_before_and_after(site_abbr, date_time, shift=False, with_swe=F
         else:
             rf_model_fn += "rf.p"
         print rf_model_fn
-        rf_model = pickle.load(open(rf_model_fn, "rb"))
+        rf_model = joblib.load(rf_model_fn)
         y_predict = rf_model.predict(feature)
         y_diff = y - y_predict
         y_predict_density = calculate_1d_kernel_density(y_diff, y_linspace)
